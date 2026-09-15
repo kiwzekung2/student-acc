@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>บันทึกรายรับ-รายจ่าย</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>💰 เงินของฉัน</h1>
+      <p>ระบบบันทึกรายรับ–รายจ่าย</p>
+    </div>
+  </header>
+
+  <section class="summary">
+    <div class="card income"><span>รายรับทั้งหมด</span><strong>฿{{ "{:,.2f}".format(income) }}</strong></div>
+    <div class="card expense"><span>รายจ่ายทั้งหมด</span><strong>฿{{ "{:,.2f}".format(expense) }}</strong></div>
+    <div class="card balance"><span>คงเหลือ</span><strong>฿{{ "{:,.2f}".format(balance) }}</strong></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>➕ เพิ่มรายการ</h2>
+      <form action="{{ url_for('add') }}" method="post">
+        <label>ประเภท
+          <select name="type" required>
+            <option value="expense">รายจ่าย</option>
+            <option value="income">รายรับ</option>
+          </select>
+        </label>
+        <label>ชื่อรายการ
+          <input name="title" placeholder="เช่น ค่าอาหาร" required>
+        </label>
+        <label>จำนวนเงิน
+          <input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>
+        </label>
+        <label>หมวดหมู่
+          <select name="category">
+            <option>อาหาร</option><option>เดินทาง</option><option>การเรียน</option>
+            <option>เกม/ความบันเทิง</option><option>ช้อปปิ้ง</option><option>เงินเดือน/ค่าขนม</option>
+            <option>อื่นๆ</option>
+          </select>
+        </label>
+        <label>วันที่
+          <input name="date" type="date" id="date" required>
+        </label>
+        <label>หมายเหตุ
+          <input name="note" placeholder="ใส่หรือไม่ใส่ก็ได้">
+        </label>
+        <button class="primary" type="submit">บันทึกรายการ</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>📊 ภาพรวมการเงิน</h2>
+      <canvas id="moneyChart"></canvas>
+      <h2 class="chart-title">📈 รายจ่ายตามหมวดหมู่</h2>
+      <canvas id="categoryChart"></canvas>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="table-head">
+      <h2>📋 ประวัติรายการ</h2>
+      <span>{{ transactions|length }} รายการ</span>
+    </div>
+    {% if transactions %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>วันที่</th><th>รายการ</th><th>หมวดหมู่</th><th>ประเภท</th><th>จำนวน</th><th></th></tr></thead>
+        <tbody>
+        {% for t in transactions %}
+          <tr>
+            <td>{{ t["date"] }}</td>
+            <td><b>{{ t["title"] }}</b>{% if t["note"] %}<small>{{ t["note"] }}</small>{% endif %}</td>
+            <td>{{ t["category"] }}</td>
+            <td><span class="badge {{ t['type'] }}">{{ "รายรับ" if t["type"]=="income" else "รายจ่าย" }}</span></td>
+            <td class="{{ t['type'] }}">{{ "+" if t["type"]=="income" else "-" }}฿{{ "{:,.2f}".format(t["amount"]) }}</td>
+            <td>
+              <form action="{{ url_for('delete', tx_id=t['id']) }}" method="post" onsubmit="return confirm('ลบรายการนี้หรือไม่?')">
+                <button class="delete" type="submit">ลบ</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="empty">ยังไม่มีรายการ ลองเพิ่มรายการแรกของเจ้าดู 👆</div>
+    {% endif %}
+  </section>
+</div>
+<script>
+document.getElementById("date").value = new Date().toISOString().slice(0,10);
+
+async function loadCharts(){
+  const data = await fetch("/api/chart").then(r=>r.json());
+  new Chart(document.getElementById("moneyChart"), {
+    type:"line",
+    data:{
+      labels:data.map(x=>x.date),
+      datasets:[
+        {label:"รายรับ", data:data.map(x=>x.income), tension:.3},
+        {label:"รายจ่าย", data:data.map(x=>x.expense), tension:.3}
+      ]
+    },
+    options:{responsive:true, scales:{y:{beginAtZero:true}}}
+  });
+  const cats = await fetch("/api/categories").then(r=>r.json());
+  new Chart(document.getElementById("categoryChart"), {
+    type:"doughnut",
+    data:{labels:cats.map(x=>x.category), datasets:[{data:cats.map(x=>x.total)}]},
+    options:{responsive:true}
+  });
+}
+loadCharts();
+</script>
+</body>
+</html>
