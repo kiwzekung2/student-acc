@@ -26,6 +26,9 @@ def init_db():
     conn.commit()
     conn.close()
 
+# เรียกสร้างตารางฐานข้อมูลทันทีเมื่อเซิร์ฟเวอร์หรือ Gunicorn เริ่มรันแอป
+init_db()
+
 @app.route("/")
 def index():
     conn = get_db()
@@ -102,5 +105,4 @@ def categories():
     return jsonify([dict(r) for r in rows])
 
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True)
